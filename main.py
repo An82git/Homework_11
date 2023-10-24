@@ -4,20 +4,18 @@ from datetime import date, datetime
 
 
 ERROR_DIC = {
-             "NoneKeyError": "A non-existent team",
-             "AddTypeError": "Give me name and phone please",
-             "AddValueError": ["Invalid phone number, must be 10 digits", 
-                               "Wrong birthday format, format: dd.mm.yyyy"],
-             "ChangeTypeError": "Give me name and phone please",
-             "ChangeIndexError": "Give the old and new phone number",
-             "ChangeAttributeError": "No such contact exists",
-             "ChangeValueError": "No such number exists",
+             "NoneKeyError": "a non-existent team",
+             "AddTypeError": "give me name and phone please",
+             "ChangeTypeError": "give me name and phone please",
+             "ChangeIndexError": "give the old and new phone number",
+             "ChangeAttributeError": "no such contact exists",
+             "ChangeValueError": "no such number exists",
              }
 
 class Field:
     def __init__(self, value: str):
         self.__value = None
-        if value[0] not in "0123456789":
+        if not value[0].isdigit() :
             self.value = value.title()
         else:
             self.value = value
@@ -36,7 +34,7 @@ class Phone(Field):
     @value.setter
     def value(self, value: str):
         if len(value) != 10 or not value.isnumeric():
-            raise ValueError("Invalid phone number, must be 10 digits")
+            raise ValueError("invalid phone number, must be 10 digits")
         self.__value = value
 
 class Birthday(Field):
@@ -46,10 +44,7 @@ class Birthday(Field):
 
     @value.setter
     def value(self, value: str):
-        if not value.replace(".", "").isnumeric() or value.count(".") != 2 or value[-1] == ".":
-            raise ValueError("Wrong birthday format, format: dd.mm.yyyy")
-        day, month, year = value.split(".")
-        self.__value = date(int(year), int(month), int(day))
+        self.__value = datetime.strptime(value, "%d.%m.%Y")
 
 class Iterable:
     def __init__(self, data: dict, n_records) -> None:
@@ -100,9 +95,9 @@ class Record:
     def days_to_birthday(self) -> int | None:
         if self.birthday:
             birthday = self.birthday.value
-            today = datetime.now().date()
+            today = date.today()
             
-            if (birthday.replace(year=today.year) - today).days < 0:
+            if birthday.replace(year=today.year) < today:
                 return (birthday.replace(year=today.year + 1) - today).days
             return (birthday.replace(year=today.year) - today).days
 
@@ -150,7 +145,7 @@ def change(data: AddressBook, name: str, old_phone: str , new_phone: str):
 
 
 def phone(data: AddressBook, name: str) -> str:
-    return data.find(name).__str__()
+    return data.find(name)
 
 
 def show_all(data: AddressBook) -> dict:
@@ -187,14 +182,19 @@ def input_error(func):
         
         except Exception as error:
             command = str(pars(string).get("command")).title()
-            _error_ = error.__class__.__name__
+            _error_ = (repr(error)
+                       .removesuffix(f"({str(error)})")
+                       .removesuffix(f"('{str(error)}')")
+                       .removesuffix(f'("{str(error)}")'))
 
             if command + _error_ in ERROR_DIC:
-                value_error = ERROR_DIC.get(command + _error_)
-                if type(value_error) == list and error.args[0] in value_error:
-                    return error.args[0]
-                return value_error
-            return f"Unknown error: type - '{_error_}'. {error}"
+                error_value = ERROR_DIC.get(command + _error_)
+
+                if type(error_value) == list and error.args[0] in error_value:
+                    return str(error)
+                
+                return str(error_value)
+            return f"Type: '{_error_}'. {error}"
 
     return inner
 
@@ -229,7 +229,7 @@ def pars(string: str) -> dict:
 
     if string:
         for item in string.split(" "):
-            if item.isnumeric():
+            if item.isdigit():
                 phones.append(item)
                 string_dict.update({"phones": phones})
             elif item.isalnum():
