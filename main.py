@@ -33,7 +33,7 @@ class Phone(Field):
 
     @value.setter
     def value(self, value: str):
-        if len(value) != 10 or not value.isnumeric():
+        if len(value) != 10 or not value.isdigit():
             raise ValueError("invalid phone number, must be 10 digits")
         self.__value = value
 
