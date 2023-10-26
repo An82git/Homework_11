@@ -1,6 +1,7 @@
 from collections import UserDict
 from collections.abc import Iterator
 from datetime import date, datetime
+import pickle
 
 
 ERROR_DIC = {
@@ -117,10 +118,11 @@ class AddressBook(UserDict):
     def add_record(self, record: Record): # який додає запис до self.data
         self.data.update({record.name.value: record})
 
-    def find(self, name: str) -> Record: # знаходить запис за ім'ям
-        for n in self.data:
-            if name.title() == n:
-                return self.data.get(n)
+    def find(self, name: str) -> str: # знаходить запис за ім'ям
+        for key in self.data:
+            if name.title() == key:
+                return str(self.data.get(key))
+        return "Contact not found"
 
     def delete(self, name: str): # видаляє запис за ім'ям
         for n in self.data:
@@ -128,6 +130,17 @@ class AddressBook(UserDict):
                 self.data.pop(n)
                 return
 
+    def find_by_string(self, string: str) -> str | list: # знайти контакти за збігом
+        found = []
+        for record in self.data.values():
+            day = record.birthday.value.strftime('%d.%m.%Y') if record.birthday else ""
+            record_str = "{}|{}|{}".format(record.name.value.lower(),
+                                           day,
+                                           '|'.join(p.value for p in record.phones))
+            if string in record_str:
+                found.append(record)
+        return "No matches found" if not found else found
+    
     def __iter__(self) -> Iterator:
         return Iterable(self.data, self.n_records)
 
@@ -146,6 +159,11 @@ def change(data: AddressBook, name: str, old_phone: str , new_phone: str):
 
 def phone(data: AddressBook, name: str) -> str:
     return data.find(name)
+
+
+def find_by(data: AddressBook, name: str = "", phones: list = [], date: str = "") -> str | list:
+    string = f"{name.lower()} {date} {''.join(phones)}".strip()
+    return data.find_by_string(string)
 
 
 def show_all(data: AddressBook) -> dict:
@@ -169,6 +187,7 @@ COMMAND_DIC = {"hello": hello,
                "change": change,
                "phone": phone,
                "show all": show_all,
+               "find by": find_by,
                "good bye": good_bye,
                "close": close,
                "exit": exit}
@@ -201,13 +220,13 @@ def input_error(func):
 @input_error
 def command_processing(data: AddressBook, string: str):
     string_dict = pars(string)
-    str_command: str = string_dict.get("command")
-    name: str = string_dict.get("name")
-    birthday: str = string_dict.get("birthday")
-    phones: list = string_dict.get("phones")
+    str_command: str = string_dict.get("command") if string_dict.get("command") else ""
+    name: str = string_dict.get("name") if string_dict.get("name") else ""
+    birthday: str = string_dict.get("birthday") if string_dict.get("birthday") else ""
+    phones: list = string_dict.get("phones") if string_dict.get("phones") else []
     command = COMMAND_DIC[str_command]
 
-    if str_command in ["add"]:
+    if str_command in ["add", "find by"]:
         return command(data, name, phones, birthday)
     elif str_command in ["change"]:
         return command(data, name, phones[0], phones[1])
@@ -242,16 +261,21 @@ def pars(string: str) -> dict:
 
 def main():
     end = True
+    FILE_NAME = "data.bin"
 
-    contacts = AddressBook()
-
+    try:
+        with open(FILE_NAME, "rb") as file:
+            contacts = pickle.load(file)
+    except FileNotFoundError:
+        contacts = AddressBook()
+        
     while end:
         string = input().lower()
 
         if string:
             rezult_command = command_processing(contacts, string)
 
-            if type(rezult_command) == AddressBook:
+            if type(rezult_command) in [AddressBook, list]:
                 for record in rezult_command:
                     print(record)
             elif type(rezult_command) == str:
@@ -262,6 +286,9 @@ def main():
 
         else:
             end = False
+
+    with open(FILE_NAME, "wb") as file:
+        pickle.dump(contacts, file)
 
 
 if __name__ == "__main__":
